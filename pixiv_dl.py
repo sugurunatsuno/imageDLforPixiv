@@ -16,37 +16,33 @@ with open(args.userdata_json, "r") as f:
 
 save_path = args.path
 
-#ログイン
-papi = pixivpy3.PixivAPI()
-#username, password
-papi.login(userdata["username"], userdata["password"])
 
-user_id = args.user_id
+def imageDlFromUserId(user_id, path, username, password, score=700):
+    papi = pixivpy3.PixivAPI()
+    papi.login(username, password)
 
-#そのユーザーの全ての記事を取得
-res = papi.users(user_id)
-work_num = res['response'][0]['stats']['works']
-json_result = papi.users_works(user_id, per_page=work_num)
+    res = papi.users(user_id)
+    work_num = res['response'][0]['stats']['works']
+    json_result = papi.users_works(user_id, per_page=work_num)
 
-#ダウンロード用のAPIのインスタンス作成
-aapi = pixivpy3.AppPixivAPI()
+    aapi = pixivpy3.AppPixivAPI()
+    for work in json_result["response"]:
 
-#取得した記事のループ
-for work in json_result["response"]:
+        sleep(1)
 
-    sleep(1)
+        if work['stats']['score'] < score:
+            continue
 
-    if work['stats']['score'] < args.score:
-        continue
+        #もし一つの記事に複数枚あるならそれを全部取得
+        if work['is_manga']:
+            for i in range(work['page_count']):
+                url = work["image_urls"]['large'][0:-5] + str(i) + work["image_urls"]['large'][-4:]
+                print("\r"+url)
+                aapi.download(url, path)
 
-    #もし一つの記事に複数枚あるならそれを全部取得
-    if work['is_manga']:
-        for i in range(work['page_count']):
-            url = work["image_urls"]['large'][0:-5] + str(i) + work["image_urls"]['large'][-4:]
-            print("\r",url)
-            aapi.download(url, save_path)
+        else:
+            url = work["image_urls"]['large']
+            print("\r"+url)
+            aapi.download(url, path)
 
-    else:
-        url = work["image_urls"]['large']
-        print("\r",url)
-        aapi.download(url, save_path)
+imageDlFromUserId(args.user_id, args.path, userdata["username"], userdata["password"], args.score)
